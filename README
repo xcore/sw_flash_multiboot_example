@@ -1,0 +1,61 @@
+This repository contains a file to generate a custom flash bootloader. 
+This can be used for example to select a flash image at boot time based on a port input
+such as a button being pressed.
+
+This process is also described in the XMOS Tools User Guide in the "Customising the
+Flash Loader" section. This example tries to be a little more specific.
+
+For a specific example, this uses an XK-1A board. This board provides some LEDs as
+a flashing indicator of which image has loaded, and buttons to allow the image to
+be selected. Another method (described in the Tools User Guide) relies on reading
+the first word from the flash.
+
+If field upgrade is planned for the product, it must be considered how version numbers
+will affect the ability of the init() function to correctly select which image is used 
+at boot time. If init() returns a value that doesn't match any image in flash, the device 
+will not boot.
+
+This demo uses the simple examples from the sw_xk1a_examples repository.
+
+Follow the steps below to try this demo out:
+- Clone the xk1a examples repository.
+- Build the app_xk1a_cycle_led and app_xk1a_flashing_led binaries.
+- Compile the loader code in this directory:
+ # xcc -c flash_dual_boot.xc -o loader.o
+
+Assuming you have the xk1a examples parallel to this directory, you can now
+flash the compound image. To do this you need to have the XTAG2 connected to the XK-1A:
+# xflash ../sw_xk1a_examples/app_xk1a_cycle_led/bin/app_xk1a_cycle_led.xe --loader loader.o --upgrade 1 ../sw_xk1a_examples/app_xk1a_flashing_led/bin/app_xk1a_flashing_led.xe
+
+This uses the cycling LED example as the base image and the flashing LED example as second
+image. Disconnect the XTAG2 and power the XK-1A externally from a 5V supply.
+By default it will boot and show the cycling LED example, however if you hold button 1 when
+powering up the board, it will flash a single LED.
+
+This can be extended to an arbitrary number of images (assuming sufficient space in the flash)
+and can be shown by creating more binaries. If these are based on the flashing_led example 
+it's easy to see which image is booted.
+
+Copy app_xk1a_flashing_led.xe aside and open the main.xc for that application.
+Change the LED output command on line 24 eg:
+    led <: 0x2;
+Rebuild the executable and again, copy it aside (eg to app_xk1a_flashing_led2.xe)
+Now edit it again and change the line to:
+    led <: 0x4;
+Again, rebuild the executable and copy is aside (eg to app_xk1a_flashing_led3.xe).
+
+There is another example boot loader file in this directory that can use these applications: 
+flash_multi_boot.xc
+
+Build this into a loader:
+# xcc -c flash_multi_boot.xc -o loader.o
+
+Now reconnect the XTAG2 and use xflash to write all 4 images to the flash:
+# xflash app_xk1a_cycle_led.xe --loader loader.o --upgrade 1 app_xk1a_flashing_led.xe --upgrade 2 app_xk1a_flashing_led2.xe --upgrade 3 app_xk1a_flashing_led3.xe
+
+Again, disconnect the XTAG-2. On powering up the board, buttons 1 and 2 can be used to
+select which image is booted. The buttons are a binary encoding of the --upgrade numbers
+above - the factory images is 0. ie holding neither button results in the cycling LED
+program being loaded. Button 1 loads the program that flashes LED 1, button 2 loads the
+program that flashes LED 2 and finally holding both buttons loads the program that flashes
+the 3rd LED.
